@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The first name(s) of the national ID holder, including any title."
+    },
+    "last_name": {
+      "type": "string",
+      "description": "The last name(s) or surname of the national ID holder."
+    },
+    "date_of_birth": {
+      "type": "string",
+      "description": "The date of birth of the national ID holder in YYYY-MM-DD format.",
+      "format": "date"
+    },
+    "address": {
+      "type": "string",
+      "description": "The residential address of the national ID holder in English not other language if doesn't have just output null."
+    },
+    "date_of_issue": {
+      "type": "string",
+      "description": "The date when the national ID was issued in YYYY-MM-DD format.",
+      "format": "date"
+    },
+    "date_of_expiry": {
+      "type": "string",
+      "description": "The date when the national ID expires in YYYY-MM-DD format.",
+      "format": "date"
+    }
+  },
+  "required": [
+    "name",
+    "last_name",
+    "date_of_birth",
+    "address",
+    "date_of_issue",
+    "date_of_expiry"
+  ]
+}

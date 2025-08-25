@@ -3,6 +3,7 @@ from PIL import Image
 import numpy as np
 import json
 import base64
+import metrics
 
 # Set the base URL for OpenAI to your custom endpoint
 def get_doc_type():
@@ -14,8 +15,11 @@ def get_doc_type():
     filenames = list(labels.keys())
 
     client = OpenAI(
+        #Mfec Key
         #base_url="https://gpt.mfec.co.th/litellm",
         #api_key="sk-5quRoBB531T6nRkbNPBsGg",
+
+        #My key
         api_key="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"
     )
 
@@ -52,5 +56,13 @@ def get_truth():
     truth = np.array([labels[f] for f in filenames])
     return truth
 
+
+
+
+
 truth = get_truth()
 preds = get_doc_type()
+acc = metrics.accuracy(truth, preds)
+avg_prec = metrics.avg_precision
+print("accuracy: ", acc)
+print("avg_prec ", avg_prec)
