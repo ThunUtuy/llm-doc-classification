@@ -3,3 +3,4 @@ pillow
 numpy
 jsonschema
 python-dotenv
+python-Levenshtein

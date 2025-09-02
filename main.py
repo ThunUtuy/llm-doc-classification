@@ -7,8 +7,15 @@ import jsonschema
 import metrics
 import os
 from dotenv import load_dotenv
+from Levenshtein import distance
+import argparse
 
 load_dotenv()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("model", help = "find the accuracy of the given model(ex: gemini-2.5-flash)")
+args = parser.parse_args()
+
 
 def get_page_extraction(page_image_path: str, json_schema_str: str, model_name: str) -> dict:
     """
@@ -121,23 +128,43 @@ def get_truth(fname: str):
 
 def test_model(model_name: str, train, train_ans, schema):
     total_accuracy = 0
+    total_cer = 0
     length = len(train)
     for i in range(length):
         ans = extract_file(schema, train[i], model_name)
         preds = convert_np_array(ans)
-        print(preds)
-
-
+        #print(preds)
         truth = get_truth(train_ans[i])
-        print(truth)
+        #print(truth)
 
+        """Field Accuracy"""
         acc = metrics.accuracy(truth, preds)
-        print(acc)
+        #print(acc)
         total_accuracy += acc
 
-    avg_acc = total_accuracy / len(doc_names)
-    print(f"\naverage accuracy of {model_name}:", avg_acc, "\n")
-    return avg_acc
+        """Character Accuracy"""
+        cer = calculate_cer(truth, preds)
+        total_cer += cer
+
+    field_acc = total_accuracy / len(doc_names)
+    character_acc = 1 - (total_cer/len(doc_names))
+    #print(f"{model_name} average field accuracy: ", field_acc, "")
+    #print(f"{model_name} average character accuracy: ", character_acc, "\n")
+    return {"field_acc":field_acc, "char_acc":character_acc}
+
+def calculate_cer(reference, hypothesis):
+    ref = [x for x in reference if x is not None]
+    hyp = [x for x in hypothesis if x is not None]
+
+
+    r = ''.join(ref)
+    h = ''.join(hyp)
+
+    # Calculate Levenshtein distance
+    edit_distance = distance(r, h)
+    # Calculate CER
+    cer = edit_distance / len(r)
+    return cer
 
 # Data
 doc_names =[
@@ -160,12 +187,23 @@ schema1 = "id_card.json"
 
 
 # Test Gemini Flash vs gpt-5-mini
+"""
 m1 = "gemini-2.5-flash"
 m2 = "gpt-5-mini"
 
 avg1 = test_model(m1, doc_names, ground_truth_names,schema1)
 avg2 = test_model(m2, doc_names, ground_truth_names,schema1)
 
-print(f"average accuracy of {m1}:", avg1)
-print(f"average accuracy of {m2}:", avg2)
+print(f"{m1} average field accuracy: ", avg1["field_acc"])
+print(f"{m1} average character accuracy: ", avg1["char_acc"], "\n")
+
+print(f"{m2} average field accuracy: ", avg2["field_acc"])
+print(f"{m2} average character accuracy: ", avg2["char_acc"], "\n")
+"""
+
+m = args.model
+avg = test_model(m, doc_names, ground_truth_names,schema1)
+
+print(f"{m} average field accuracy: ", avg["field_acc"])
+print(f"{m} average character accuracy: ", avg["char_acc"], "\n")
 
