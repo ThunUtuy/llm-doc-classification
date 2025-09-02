@@ -9,11 +9,13 @@ import os
 from dotenv import load_dotenv
 from Levenshtein import distance
 import argparse
+import time
 
 load_dotenv()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("model", help = "find the accuracy of the given model(ex: gemini-2.5-flash)")
+parser.add_argument("-i", "--iteration", help = "repeat i many times for more accurate result", type = int )
 args = parser.parse_args()
 
 
@@ -200,10 +202,31 @@ print(f"{m1} average character accuracy: ", avg1["char_acc"], "\n")
 print(f"{m2} average field accuracy: ", avg2["field_acc"])
 print(f"{m2} average character accuracy: ", avg2["char_acc"], "\n")
 """
-
 m = args.model
-avg = test_model(m, doc_names, ground_truth_names,schema1)
 
-print(f"{m} average field accuracy: ", avg["field_acc"])
-print(f"{m} average character accuracy: ", avg["char_acc"], "\n")
+start_time = time.perf_counter()
+
+if args.iteration:
+    repeat = args.iteration
+    total_field_avg = 0
+    total_char_avg = 0
+    for i in range(repeat):
+        avg = test_model(m, doc_names, ground_truth_names,schema1)
+        total_field_avg += avg["field_acc"]
+        total_char_avg += avg["char_acc"]
+    avr_field_avg = total_field_avg/repeat
+    avr_char_avg = total_char_avg/repeat
+
+    print(f"{m} average field accuracy after {repeat} tries: ", avr_field_avg)
+    print(f"{m} average character accuracy after {repeat} tries: ", avr_char_avg)
+
+else:
+    avg = test_model(m, doc_names, ground_truth_names,schema1)
+
+    print(f"{m} average field accuracy: ", avg["field_acc"])
+    print(f"{m} average character accuracy: ", avg["char_acc"])
+
+end_time = time.perf_counter()
+elapsed_time = end_time - start_time
+print(f"{m} executed in {elapsed_time:.6f} seconds\n")
 

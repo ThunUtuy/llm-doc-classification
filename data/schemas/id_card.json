@@ -16,7 +16,7 @@
     },
     "address": {
       "type": "string",
-      "description": "The residential address of the national ID holder in English. If it is in other language just output None."
+      "description": "The residential address of the national ID holder in English. If it is in other language just output None data type."
     },
     "date_of_issue": {
       "type": "string",
