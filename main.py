@@ -3,66 +3,169 @@ from PIL import Image
 import numpy as np
 import json
 import base64
+import jsonschema
 import metrics
+import os
+from dotenv import load_dotenv
 
-# Set the base URL for OpenAI to your custom endpoint
-def get_doc_type():
+load_dotenv()
 
-    #Get Truth From labels.json
-    with open("labels.json") as f:
-        labels = json.load(f)
+def get_page_extraction(page_image_path: str, json_schema_str: str, model_name: str) -> dict:
+    """
+Extracts structured data and raw text from a page image.
 
-    filenames = list(labels.keys())
-
+- If a schema_id is provided, it extracts structured data according to the schema
+    and also extracts the raw text. It returns a dict with 'parsed_json' and 'raw_text'.
+    """
     client = OpenAI(
         #Mfec Key
-        #base_url="https://gpt.mfec.co.th/litellm",
-        #api_key="sk-5quRoBB531T6nRkbNPBsGg",
-
-        #My key
-        api_key="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"
+        base_url=os.getenv("MFEC_BASE_URL"),
+        api_key=os.getenv("MFEC_API_KEY"),
     )
 
-    raw = []
-
-    for file in filenames:
-        # Example: Create a chat completion
-        with open(f"data/{file}", "rb") as image_file:
+    try:
+        with open(page_image_path, "rb") as image_file:
             base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+    except FileNotFoundError:
+        print(f"Error: Image file not found at {page_image_path}")
+        return None
+    
+    image_content = {
+        "type": "image_url",
+        "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+    }
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages= [
-                #{"role": "system", "content": "You are a document classifier. Return JSON only: { \"label\": <one of [\"national_id\",\"passport\",\"driver_license\",\"other\"]>, \"confidence\": <0..1> }. No extra text."},
-                {"role": "system", "content": "You are a document classifier. Return just one of the words: national_id, passport, driver_license, other . No extra text."},
-                {"role": "user", "content": [
-                    {"type": "text", "text": "Classify this document."},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"},}
-                ]}  
-            ]
-        )
-        raw.append(response.choices[0].message.content)
+    prompt = f"""Extract all text from the document and structured data based on the provided JSON schema.
+        Return a single JSON object with two top-level keys:
+        1. `raw_text`: A string containing all the extracted text from the document in markdown format.
+        2. `extracted_data`: A JSON object containing the structured data that conforms to the schema below.
+
+        JSON Schema:
+        ```json
+        {json_schema_str}
+        ```"""
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an expert data extractor. You must return data in the exact JSON format requested, with 'raw_text' and 'extracted_data' keys.",
+        },
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": prompt}, image_content],
+        },
+    ]
+
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        response_format={"type": "json_object"},
+    )
+
+    try:
+        response_json = json.loads(response.choices[0].message.content)
+
+        # Structured extraction validation
+        raw_text = response_json.get("raw_text")
+        extracted_data = response_json.get("extracted_data")
+
+        return {"parsed_json": extracted_data}
+
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON from LLM response: {e}")
+        return None
+    except jsonschema.exceptions.ValidationError as e:
+        print(f"LLM response failed schema validation: {e}")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred during extraction: {e}")
+        return None
+    
+def extract_file(schema_name, doc_name, model_name):
+    """
+    Return a json of the response, by inputting Schema and Document
+    """
+    try:
+        with open(f'data/schemas/{schema_name}', 'r') as file:
+            schema_data = json.load(file)
         
-    preds = np.array(raw)
-    print(preds)  
-    return preds
+    except FileNotFoundError:
+        print("Error: The file 'data.json' was not found.")
+        return
+    except json.JSONDecodeError:
+        print("Error: Could not decode JSON from the file.")
+        return
 
-def get_truth():
-    #Get Truth From labels.json
-    with open("labels.json") as f:
-        labels = json.load(f)
+    ans = get_page_extraction(f"data/docs/{doc_name}", schema_data, model_name)
+    return ans["parsed_json"]
 
-    filenames = list(labels.keys())
-    truth = np.array([labels[f] for f in filenames])
+def convert_np_array(json_str:str):
+    """
+    Convert a json answer into an numpy array ex. ['Mr. John' 'Doe']
+    """
+    ans = list(json_str.keys())
+    truth = np.array([json_str[f] for f in ans])
     return truth
 
 
+def get_truth(fname: str):
+    """
+    return a numpy array of values of the answers ex. ['Mr. John' 'Doe']
+    """
+    #Get Truth From labels.json
+    with open(f"ground_truth/{fname}") as f:
+        labels = json.load(f)
+
+    keys = list(labels.keys())
+    truth = np.array([labels[key] for key in keys])
+    return truth
+
+def test_model(model_name: str, train, train_ans, schema):
+    total_accuracy = 0
+    length = len(train)
+    for i in range(length):
+        ans = extract_file(schema, train[i], model_name)
+        preds = convert_np_array(ans)
+        print(preds)
 
 
+        truth = get_truth(train_ans[i])
+        print(truth)
 
-truth = get_truth()
-preds = get_doc_type()
-acc = metrics.accuracy(truth, preds)
-avg_prec = metrics.avg_precision
-print("accuracy: ", acc)
-print("avg_prec ", avg_prec)
+        acc = metrics.accuracy(truth, preds)
+        print(acc)
+        total_accuracy += acc
+
+    avg_acc = total_accuracy / len(doc_names)
+    print(f"\naverage accuracy of {model_name}:", avg_acc, "\n")
+    return avg_acc
+
+# Data
+doc_names =[
+    'id_card_1.png',
+    'id_card_2.png',
+    'id_card_3.jpg',
+    'id_card_4.png',
+    'id_card_5.jpg',
+]
+
+ground_truth_names = [
+    'id_card_1.json',
+    'id_card_2.json',
+    'id_card_3.json',
+    'id_card_4.json',
+    'id_card_5.json',
+]
+
+schema1 = "id_card.json"
+
+
+# Test Gemini Flash vs gpt-5-mini
+m1 = "gemini-2.5-flash"
+m2 = "gpt-5-mini"
+
+avg1 = test_model(m1, doc_names, ground_truth_names,schema1)
+avg2 = test_model(m2, doc_names, ground_truth_names,schema1)
+
+print(f"average accuracy of {m1}:", avg1)
+print(f"average accuracy of {m2}:", avg2)
+
