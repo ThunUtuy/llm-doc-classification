@@ -28,8 +28,8 @@ Extracts structured data and raw text from a page image.
     """
     client = OpenAI(
         #Mfec Key
-        base_url=os.getenv("MFEC_BASE_URL"),
-        api_key=os.getenv("MFEC_API_KEY"),
+        base_url=os.getenv("BASE_URL"),
+        api_key=os.getenv("API_KEY"),
     )
 
     try:
