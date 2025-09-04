@@ -1,11 +1,11 @@
-from openai import OpenAI
-from PIL import Image
+from openai import OpenAI, BadRequestError
 import numpy as np
 import json
 import base64
 import jsonschema
 import metrics
 import os
+import csv
 from dotenv import load_dotenv
 from Levenshtein import distance
 
@@ -56,14 +56,13 @@ Extracts structured data and raw text from a page image.
             "content": [{"type": "text", "text": prompt}, image_content],
         },
     ]
-
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=messages,
-        response_format={"type": "json_object"},
-    )
-
     try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            response_format={"type": "json_object"},
+        )
+
         response_json = json.loads(response.choices[0].message.content)
 
         # Structured extraction validation
@@ -77,6 +76,9 @@ Extracts structured data and raw text from a page image.
         return None
     except jsonschema.exceptions.ValidationError as e:
         print(f"LLM response failed schema validation: {e}")
+        return None
+    except BadRequestError as e:
+        print(f"Error requesting with the model - {model_name}: {e}")
         return None
     except Exception as e:
         print(f"An unexpected error occurred during extraction: {e}")
@@ -140,6 +142,7 @@ def test_model(model_name: str, train, train_ans, schema):
         """Character Accuracy"""
         cer = calculate_cer(truth, preds)
         total_cer += cer
+        #print(1 - cer)
 
     field_acc = total_accuracy / length
     character_acc = 1 - (total_cer/length)
@@ -160,3 +163,17 @@ def calculate_cer(reference, hypothesis):
     # Calculate CER
     cer = edit_distance / len(r)
     return cer
+
+def process_csv(file_name, content):
+    try:
+        with open(file_name, 'a', newline = '') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(content)
+
+    except FileNotFoundError as e:
+        print(f"Error: The file '{file_name}' was not found.")
+        return
+    except Exception as e:
+        print(e)
+        return 
+

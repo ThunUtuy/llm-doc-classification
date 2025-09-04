@@ -1,9 +1,6 @@
-from dotenv import load_dotenv
 import argparse
 import time
-from processing import test_model
-
-load_dotenv()
+from processing import test_model, process_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument("model", help = "find the accuracy of the given model(ex: gemini-2.5-flash)")
@@ -32,6 +29,7 @@ schema1 = "id_card.json"
 m = args.model
 
 start_time = time.perf_counter()
+repeat = 1
 
 if args.iteration:
     repeat = args.iteration
@@ -41,19 +39,27 @@ if args.iteration:
         avg = test_model(m, doc_names, ground_truth_names,schema1)
         total_field_avg += avg["field_acc"]
         total_char_avg += avg["char_acc"]
-    avr_field_avg = total_field_avg/repeat
-    avr_char_avg = total_char_avg/repeat
+    avg_field = total_field_avg/repeat
+    avg_char = total_char_avg/repeat
 
-    print(f"{m} average field accuracy after {repeat} tries: ", avr_field_avg)
-    print(f"{m} average character accuracy after {repeat} tries: ", avr_char_avg)
+
+    print(f"{m} average field accuracy after {repeat} tries: ", avg_field)
+    print(f"{m} average character accuracy after {repeat} tries: ", avg_char)
 
 else:
     avg = test_model(m, doc_names, ground_truth_names,schema1)
+    avg_field = avg["field_acc"]
+    avg_char = avg["char_acc"]
 
-    print(f"{m} average field accuracy: ", avg["field_acc"])
-    print(f"{m} average character accuracy: ", avg["char_acc"])
+    print(f"{m} average field accuracy: ", avg_field)
+    print(f"{m} average character accuracy: ", avg_char)
 
 end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"{m} executed in {elapsed_time:.6f} seconds\n")
+
+append_row = [m, repeat, round(avg_field,7), round(avg_char,7), round(elapsed_time,7)]
+process_csv("results.csv", append_row)
+
+
 
