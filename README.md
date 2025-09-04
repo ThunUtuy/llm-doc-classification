@@ -1,5 +1,5 @@
 # llm-doc-classification
-Evaluating which models are the most accurate and cost efficient
+Evaluating which models are the fastest and most accurate at extracting data
 
 ## How to Run
 1. Set up venv
@@ -24,5 +24,10 @@ python main.py gemini-2.5-flash
 python main.py gemini-2.5-flash --iteration 2
 ```
 5. Check the csv file for results (not done)
-- The rows contain: model, repetition, field accuracy, character accuracy, time taken to run 
+- The rows contain: model, repetition, field accuracy, character accuracy, time taken to run
+
+6. Changing files to test
+  - Change the files in the data/docs
+  - Change the schemas in the data/schemas
+  - Change the fields in the ground_truth according to the files in docs and schemas
 
